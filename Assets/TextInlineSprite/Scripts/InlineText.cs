@@ -31,7 +31,7 @@ public class InlineText : Text, IPointerClickHandler
 
     #region 超链接
     [System.Serializable]
-    public class HrefClickEvent : UnityEvent<string> { }
+    public class HrefClickEvent : UnityEvent<string,int,ulong> { }
     //点击事件监听
     public HrefClickEvent OnHrefClick = new HrefClickEvent();
     // 超链接信息列表  
@@ -120,9 +120,9 @@ public class InlineText : Text, IPointerClickHandler
         toFill.Clear();
 
         //计算quad占位的信息
-        CalcQuadInfo(verts);
+        CalcQuadInfo(verts, unitsPerPixel);
         //计算包围盒
-        CalcBoundsInfo(verts,toFill,settings);
+        CalcBoundsInfo(verts,toFill,settings, unitsPerPixel);
 
         if (roundingOffset != Vector2.zero)
         {
@@ -174,7 +174,7 @@ public class InlineText : Text, IPointerClickHandler
 
 
     #region 计算Quad占位信息
-    void CalcQuadInfo(IList<UIVertex> verts)
+    void CalcQuadInfo(IList<UIVertex> verts,float unitsPerPixel)
     {
         foreach (var item in _SpriteInfo)
         {
@@ -187,7 +187,7 @@ public class InlineText : Text, IPointerClickHandler
                 tempVertex.uv0 = Vector2.zero;
                 verts[i] = tempVertex;
                 //计算位置
-                item.Value._Pos[i - item.Key] = tempVertex.position;
+                item.Value._Pos[i - item.Key] = tempVertex.position * unitsPerPixel;
             }
         }
         //绘制表情
@@ -224,7 +224,7 @@ public class InlineText : Text, IPointerClickHandler
     #endregion
 
     #region 处理超链接的包围盒
-    void CalcBoundsInfo(IList<UIVertex> verts, VertexHelper toFill,TextGenerationSettings settings)
+    void CalcBoundsInfo(IList<UIVertex> verts, VertexHelper toFill,TextGenerationSettings settings,float unitsPerPixel)
     {
         #region 包围框
         // 处理超链接包围框  
@@ -239,7 +239,7 @@ public class InlineText : Text, IPointerClickHandler
 
             // 将超链接里面的文本顶点索引坐标加入到包围框  
             vert = verts[hrefInfo.startIndex];
-            var pos = vert.position;
+            var pos = vert.position * unitsPerPixel;
             var bounds = new Bounds(pos, Vector3.zero);
             for (int i = hrefInfo.startIndex, m = hrefInfo.endIndex; i < m; i++)
             {
@@ -249,7 +249,7 @@ public class InlineText : Text, IPointerClickHandler
                 }
 
                 vert = verts[i];
-                pos = vert.position;
+                pos = vert.position * unitsPerPixel;
                 if (pos.x < bounds.min.x)
                 {
                     // 换行重新添加包围框  
@@ -314,10 +314,19 @@ public class InlineText : Text, IPointerClickHandler
             //更新超链接
             if (_tempID == -1)
             {
+                string[] str_list = _tempTag.Split('#');
+                _tempTag = str_list[0];
+                int _tagtype = -1;
+                if (str_list.Length>1)
+                    _tagtype = int.Parse(str_list[1]);
+                ulong _tagid = ulong.MaxValue;
+                if (str_list.Length > 2)
+                    _tagid = ulong.Parse(str_list[2]);
+
                 _textBuilder.Append(text.Substring(_textIndex, match.Index - _textIndex));
                 _textBuilder.Append("<color=blue>");
                 int _startIndex = _textBuilder.Length * 4;
-                _textBuilder.Append("[" + match.Groups[2].Value + "]");
+                _textBuilder.Append("[" + _tempTag + "]");
                 int _endIndex = _textBuilder.Length * 4 - 2;
                 _textBuilder.Append("</color>");
 
@@ -325,7 +334,9 @@ public class InlineText : Text, IPointerClickHandler
                 {
                     startIndex = _startIndex, // 超链接里的文本起始顶点索引
                     endIndex = _endIndex,
-                    name = match.Groups[2].Value
+                    name = _tempTag,
+                    TagType = _tagtype,
+                    TagID = _tagid,
                 };
                 _ListHrefInfos.Add(hrefInfo);
 
@@ -370,6 +381,8 @@ public class InlineText : Text, IPointerClickHandler
         public int endIndex;
 
         public string name;
+        public int TagType;
+        public ulong TagID;
 
         public readonly List<Rect> boxes = new List<Rect>();
     }
@@ -391,7 +404,7 @@ public class InlineText : Text, IPointerClickHandler
             {
                 if (boxes[i].Contains(lp))
                 {
-                    OnHrefClick.Invoke(hrefInfo.name);
+                    OnHrefClick.Invoke(hrefInfo.name,hrefInfo.TagType,hrefInfo.TagID);
                     return;
                 }
             }

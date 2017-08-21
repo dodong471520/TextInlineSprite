@@ -67,7 +67,17 @@ public class InlineManager : MonoBehaviour {
         }
     }
     #endregion
-
+    //计算
+    private Vector2 switchToRectTransform(RectTransform from, RectTransform to)
+    {
+        Vector2 localPoint;
+        Vector2 fromPivotDerivedOffset = new Vector2(from.rect.width * from.pivot.x + from.rect.xMin, from.rect.height * from.pivot.y + from.rect.yMin);
+        Vector2 screenP = RectTransformUtility.WorldToScreenPoint(null, from.position);
+        screenP += fromPivotDerivedOffset;
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(to, screenP, null, out localPoint);
+        Vector2 pivotDerivedOffset = new Vector2(to.rect.width * to.pivot.x + to.rect.xMin, to.rect.height * to.pivot.y + to.rect.yMin);
+        return to.anchoredPosition + localPoint - pivotDerivedOffset;
+    }
     public void UpdateTextInfo(int _id,InlineText _key, List<SpriteTagInfo> _value)
     {
         if (!_IndexSpriteGraphic.ContainsKey(_id)||!_TextMeshInfo.ContainsKey(_id)|| _value.Count<=0)
@@ -75,7 +85,7 @@ public class InlineManager : MonoBehaviour {
         int _spriteTagCount = _value.Count;
         Vector3 _textPos = _key.transform.position;
         Vector3 _spritePos = _IndexSpriteGraphic[_id]._SpriteGraphic.transform.position;
-        Vector3 _disPos = _textPos - _spritePos;
+        Vector3 _disPos = switchToRectTransform(_key.rectTransform, _IndexSpriteGraphic[_id]._SpriteGraphic.rectTransform);
 
         MeshInfo _meshInfo = new MeshInfo();
         _meshInfo._Tag = new string[_spriteTagCount];
